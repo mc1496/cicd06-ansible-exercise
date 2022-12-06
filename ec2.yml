@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: 2010-09-09
+# we can get default vpc id, or create new vpc id
+#max@m20:~/y/xCloudDevOps/cicd/ec2$ aws ec2 describe-vpcs \
+# --query "Vpcs[].VpcId" --filters "Name=isDefault, Values='true'" --output text
+#vpc-0c30db02ba9169581
+
+# IsDefault is not working, we should use isDefault of is-default
+
+# max@m20:~/y/xCloudDevOps/cicd/ec2$ aws ec2 describe-vpcs
+# {
+#     "Vpcs": [
+#         {
+#             "CidrBlock": "172.31.0.0/16",
+#             "DhcpOptionsId": "dopt-0f4adfaa8a90db88e",
+#             "State": "available",
+#             "VpcId": "vpc-0c30db02ba9169581",
+#             "OwnerId": "474608141926",
+#             "InstanceTenancy": "default",
+#             "CidrBlockAssociationSet": [
+#                 {
+#                     "AssociationId": "vpc-cidr-assoc-04d8fc88f1ef2ec94",
+#                     "CidrBlock": "172.31.0.0/16",
+#                     "CidrBlockState": {
+#                         "State": "associated"
+#                     }
+#                 }
+#             ],
+#             "IsDefault": true
+#         }
+#     ]
+# }
+
+# aws ec2 describe-vpcs --query "Vpcs[].{VpcId:VpcId, IsDefault:IsDefault}"
+# [
+#     {
+#         "VpcId": "vpc-0c30db02ba9169581",
+#         "IsDefault": true
+#     }
+# ]
+#https://docs.outscale.com/en/userguide/Getting-Information-About-Your-VPCs.html#_Getting_Information_About_Your_VPCs_Using_AWS_CLI
+#
+#There is no IsDefault in filter isDefault or is-default
+
+# The following filters are available:
+
+#     vpc-id: The ID of the VPC.
+
+#     state: The state of the VPC. For more information, see About VPCs.
+
+#     cidr: The exact CIDR block of the VPC.
+
+#     cidr-block: The exact CIDR block of the VPC (similar to cidr and cidrBlock).
+
+#     cidrBlock: The exact CIDR block of the VPC (similar to cidr and cidr-block).
+
+#     dhcp-options-id: The ID of a DHCP options set associated with the VPC. For more information, see About DHCP Options.
+
+#     is-default: Indicates whether the VPC is the default one (always false, as 3DS OUTSCALE does not provide default VPCs.)
+
+#     isDefault: Alias to the is-default filter.
+
+#     tag-key: The key of a tag associated with the resource.
+
+#     tag-value: The value of a tag associated with the resource.
+
+#     tag:XXXX: The value of a tag associated with the resource, where XXXX is the key of the tag.
+
+#
+Description: >
+  Xam Yxar EC2
+#         
+Parameters:
+  EnvironmentName:
+    Description: will be prefixed to resource names
+    Type: String
+  MyPublicIpCIDR:
+    Description: MyPublicIpCIDR curl -s http://checkip.amazonaws.com
+    Type: String
+  EC2AMI:
+    Description: EC2 AMI to use
+    Type: String
+  EC2KeyName:
+    Description: EC2 SSH Key Name
+    Type: String
+  EC2InstanceType:
+    Description: EC2 InstanceType
+    Type: String
+  DefaultVpcId:
+    Description: Default VPC ID
+    Type: String            
+  HttpPort:
+    Description: HTTP port
+    Type: Number            
+  
+#
+Resources:
+#let use default VPC 
+  EC2SecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from remote  only from my Public IP
+      VpcId: !Ref DefaultVpcId
+      #   Fn::ImportValue:
+      #     !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref MyPublicIpCIDR
+      - IpProtocol: tcp
+        FromPort: !Ref HttpPort
+        ToPort: !Ref HttpPort
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress: #SecurityGroupEgress cannot be specified without VpcId
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-EC2SecGroup
+#let use any subnet in any AZ
+  EC2Inst:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref EC2KeyName
+      ImageId: !Ref EC2AMI
+      InstanceType: !Ref EC2InstanceType
+      NetworkInterfaces:
+      - AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        Description: My CICD EC2 Inst
+        DeviceIndex: '0'
+        # SubnetId:
+        #   Fn::ImportValue: !Sub "${EnvironmentName}-PUB1-SN"
+        GroupSet:
+          - Ref: EC2SecGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-EC2
+
+#PublicIP and DNSname of JumpBox for SSH
+Outputs:
+  EC2PublicDnsName:
+    Description: A reference to the PublicDnsName of EC2Inst
+    Value: !GetAtt EC2Inst.PublicDnsName
+    Export:
+      Name: !Sub ${EnvironmentName}-EC2PublicDnsName
+
+  EC2PublicIp:
+    Description: A reference to the PublicIp of EC2Inst
+    Value: !GetAtt EC2Inst.PublicIp
+    Export:
+      Name: !Sub ${EnvironmentName}-EC2PublicIp
+
+  EC2SecGroupID:
+    Description: A reference to the created EC2SecGroup ID for ssh to servers in private net
+    Value: !GetAtt EC2SecGroup.GroupId
+    Export:
+      Name: !Sub ${EnvironmentName}-EC2SecGroupID      

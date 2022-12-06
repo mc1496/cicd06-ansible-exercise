@@ -1,0 +1,30 @@
+[
+	{
+		"ParameterKey": "EnvironmentName",
+		"ParameterValue": "ZZZ"
+	},
+	{
+		"ParameterKey": "MyPublicIpCIDR",		
+		"ParameterValue": "173.34.118.100/32"
+	},
+	{
+		"ParameterKey": "EC2AMI",		
+		"ParameterValue": "ami-08c40ec9ead489470"
+	},
+	{
+		"ParameterKey": "EC2KeyName",		
+		"ParameterValue": "xam-ec2-key-cicd"
+	},
+	{
+		"ParameterKey": "EC2InstanceType",		
+		"ParameterValue": "t2.micro"
+	},
+	{
+		"ParameterKey": "DefaultVpcId",		
+		"ParameterValue": "vpc-0c30db02ba9169581"
+	},
+	{
+		"ParameterKey": "HttpPort",		
+		"ParameterValue": "3000"
+	}
+]
