@@ -1,1 +1,1 @@
-# cicd07-ansible-exercise
+# cicd06-ansible-exercise
